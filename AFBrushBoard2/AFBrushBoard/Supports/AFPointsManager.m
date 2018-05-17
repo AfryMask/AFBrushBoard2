@@ -20,6 +20,7 @@
 
 @property CGFloat currentSize;
 @property CGFloat aimSize;
+@property CGPoint smoothPoint;
 @end
 
 @implementation AFPointsManager
@@ -40,6 +41,7 @@
 - (void)startWithPoint:(CGPoint)point{
     self.pointCount = 1;
     self.currentSize = self.maxSize;
+    self.smoothPoint = CGPointZero;
     
     self.point3 = point;
 }
@@ -53,11 +55,13 @@
     self.point2 = self.point3;
     self.point3 = point;
     if (self.pointCount == 2) {
-        return [self makeLiner:self.point2 p2:pointCenter(self.point2, self.point3)];//线性2-2.5
+        NSArray *arr = [self makeLiner:self.point2 p2:pointCenter(self.point2, self.point3)];//线性2-2.5
+        return [self smoothPoints:arr];
     }else{
-        return [self makeBezier:pointCenter(self.point1, self.point2)
+        NSArray *arr = [self makeBezier:pointCenter(self.point1, self.point2)
                              p2:pointCenter(self.point2, self.point3)
                              cp:self.point2];//贝塞尔曲线1.5-[2]-2.5
+        return [self smoothPoints:arr];
     }
     
 }
@@ -78,7 +82,7 @@
         [arr addObjectsFromArray:after];
         
         
-        return arr;//线性2.5-3
+        return [self smoothPoints:arr];//线性2.5-3
     }
 //
 //    return nil;
@@ -88,20 +92,7 @@
 
 
 - (NSArray *)makeLiner:(CGPoint)p1 p2:(CGPoint)p2{
-    int count = MAX(ceilf(pointDistance(p1,p2)/self.step), 1);
-    NSMutableArray *array = [NSMutableArray arrayWithCapacity:count];
-    for (int i = 0; i<count; i++) {
-        AFPoint *p = [AFPoint new];
-        if (self.currentSize < self.aimSize) {
-            self.currentSize+=self.sizeSpeed;
-        }else{
-            self.currentSize-=self.sizeSpeed;
-        }
-        p.size = self.currentSize;
-        p.point = CGPointMake(p1.x + (p2.x-p1.x)*i/count, p1.y + (p2.y-p1.y)*i/count);
-        [array addObject:p];
-    }
-    return array;
+    return @[[NSValue valueWithCGPoint:p1],[NSValue valueWithCGPoint:p2]];
 }
 
 - (NSArray *)makeBezier:(CGPoint)startP p2:(CGPoint)endP cp:(CGPoint)controlP{
@@ -109,34 +100,59 @@
     int segements = MAX((int)(dis/5), 2)*2;
     NSMutableArray *array = [NSMutableArray arrayWithCapacity:segements];
     
-    CGPoint p1 = startP;
     for (int i = 0; i<=segements; i++) {
         CGFloat t = i * 1.0 / segements;
         CGFloat x = pow(1-t,2)*startP.x + 2.0*(1-t)*t*controlP.x + t*t*endP.x;
         CGFloat y = pow(1-t,2)*startP.y + 2.0*(1-t)*t*controlP.y + t*t*endP.y;
-        CGPoint p2 = CGPointMake(x, y);
-        
-        
-        int count = MAX(ceilf(pointDistance(p1,p2)/self.step), 1);
-        for (int j = 0; j<count; j++) {
-            AFPoint *p = [AFPoint new];
+        [array addObject:[NSValue valueWithCGPoint:CGPointMake(x, y)]];
+    }
+    return array;
+    
+}
+
+
+- (NSArray *)smoothPoints:(NSArray *)points{
+    if (points.count == 0) {
+        return nil;
+    }
+    if (CGPointEqualToPoint(self.smoothPoint, CGPointZero)) {
+        self.smoothPoint = [points[0] CGPointValue];
+    }
+    CGFloat distance = 1;
+    NSMutableArray *arr = [NSMutableArray arrayWithCapacity:points.count];
+    for (int i = 0; i<points.count; i++) {
+        CGPoint p = [points[i] CGPointValue];
+        CGFloat d = pointDistance(p, self.smoothPoint);
+        if (d < distance) {
+            continue;
+        }
+        CGFloat kx = (p.x-self.smoothPoint.x)/d;
+        CGFloat ky = (p.y-self.smoothPoint.y)/d;
+        while (1) {
+            CGPoint newp = CGPointMake(self.smoothPoint.x+kx, self.smoothPoint.y+ky);
+            if ((kx>0 && newp.x>p.x) || (kx<0 && newp.x<p.x)) {
+                break;
+            }
+            if ((ky>0 && newp.y>p.y) || (ky<0 && newp.y<p.y)) {
+                break;
+            }
+            self.smoothPoint = newp;
+            
+            AFPoint *afp = [AFPoint new];
             if (self.currentSize < self.aimSize) {
                 self.currentSize+=self.sizeSpeed;
             }else{
                 self.currentSize-=self.sizeSpeed;
             }
-            p.size = self.currentSize;
-            p.point = CGPointMake(p1.x + (p2.x-p1.x)*j/count, p1.y + (p2.y-p1.y)*j/count);
-            
-            if (i == 0 && j == 0) {
-                continue;
-            }
-            [array addObject:p];
+            afp.size = self.currentSize;
+            afp.point = newp;
+            [arr addObject:afp];
         }
-        p1 = p2;
+        
+        
+        
     }
-    NSLog(@"arraycount %d",array.count);
-    return array;
+    return arr;
     
 }
 

@@ -631,7 +631,7 @@ typedef struct {
     
     endDate = [NSDate date];
     interval = [endDate timeIntervalSinceDate:startDate];
-    NSLog(@"+cost time2:%.4fs",interval);
+//    NSLog(@"+cost time2:%.4fs",interval);
 }
 
 - (void)setBrushColorWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue
