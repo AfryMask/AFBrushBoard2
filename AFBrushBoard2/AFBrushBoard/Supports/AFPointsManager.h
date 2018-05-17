@@ -8,8 +8,18 @@
 
 #import <UIKit/UIKit.h>
 
-@interface AFPointsManager : NSObject
+@interface AFPoint : NSObject
+@property CGPoint point;
+@property CGFloat size;
+@end
 
+@interface AFPointsManager : NSObject
+@property CGFloat step;
+@property CGFloat maxSize;
+@property CGFloat sizeSpeed;
+@property CGFloat minSize;
+@property CGFloat maxSpeed;
+@property CGFloat minSpeed;
 
 - (void)startWithPoint:(CGPoint)point;
 - (NSArray *)appendPoint:(CGPoint)point;

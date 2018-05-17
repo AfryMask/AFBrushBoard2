@@ -22,7 +22,10 @@
     [self.brushBoard setBrushColorWithRed:1 green:0 blue:0];
     
     
-    
+    UIButton *btn = [[UIButton alloc]initWithFrame:CGRectMake(0, 0, 100, 100)];
+    [btn addTarget:self.brushBoard action:@selector(erase) forControlEvents:UIControlEventTouchUpInside];
+    btn.backgroundColor = [UIColor cyanColor];
+    [self.view addSubview:btn];
 }
 
 - (void)viewWillAppear:(BOOL)animated{

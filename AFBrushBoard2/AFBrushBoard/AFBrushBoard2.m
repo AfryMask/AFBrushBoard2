@@ -55,10 +55,11 @@
 #import "shaderUtil.h"
 #import "fileUtil.h"
 #import "debug.h"
+#import "AFPointsManager.h"
 
 //CONSTANTS:
 
-#define kBrushOpacity        (1.0 / 3.0)
+#define kBrushOpacity        (1.0 / 6.0)
 #define kBrushPixelStep        1
 #define kBrushScale            5
 
@@ -130,7 +131,7 @@ typedef struct {
     
     BOOL initialized;
 }
-
+@property AFPointsManager *pointManager;
 @end
 
 @implementation AFBrushBoard2
@@ -167,6 +168,7 @@ typedef struct {
         
         // Make sure to start with a cleared buffer
         needsErase = YES;
+        self.pointManager = [AFPointsManager new];
     }
     
     return self;
@@ -347,9 +349,9 @@ typedef struct {
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     
     // Playback recorded path, which is "Shake Me"
-    NSMutableArray* recordedPaths = [NSMutableArray arrayWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Recording" ofType:@"data"]];
-    if([recordedPaths count])
-        [self performSelector:@selector(playback:) withObject:recordedPaths afterDelay:0.2];
+//    NSMutableArray* recordedPaths = [NSMutableArray arrayWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Recording" ofType:@"data"]];
+//    if([recordedPaths count])
+//        [self performSelector:@selector(playback:) withObject:recordedPaths afterDelay:0.2];
     
     return YES;
 }
@@ -530,6 +532,7 @@ typedef struct {
     // Convert touch point from UIView referential to OpenGL one (upside-down flip)
     location = [touch locationInView:self];
     location.y = bounds.size.height - location.y;
+    [self.pointManager startWithPoint:location];
 }
 
 // Handles the continuation of a touch.
@@ -539,19 +542,21 @@ typedef struct {
     UITouch*            touch = [[event touchesForView:self] anyObject];
     
     // Convert touch point from UIView referential to OpenGL one (upside-down flip)
-    if (firstTouch) {
-        firstTouch = NO;
-        previousLocation = [touch previousLocationInView:self];
-        previousLocation.y = bounds.size.height - previousLocation.y;
-    } else {
+//    if (firstTouch) {
+//        firstTouch = NO;
+//        previousLocation = [touch previousLocationInView:self];
+//        previousLocation.y = bounds.size.height - previousLocation.y;
+//    } else {
         location = [touch locationInView:self];
         location.y = bounds.size.height - location.y;
         previousLocation = [touch previousLocationInView:self];
         previousLocation.y = bounds.size.height - previousLocation.y;
-    }
+//    }
     
     // Render the stroke
-    [self renderLineFromPoint:previousLocation toPoint:location];
+//    [self renderLineFromPoint:previousLocation toPoint:location];
+    NSArray *points = [self.pointManager appendPoint:location];
+    [self drawPoints:points];
 }
 
 // Handles the end of a touch event when the touch is a tap.
@@ -559,12 +564,17 @@ typedef struct {
 {
     CGRect                bounds = [self bounds];
     UITouch*            touch = [[event touchesForView:self] anyObject];
-    if (firstTouch) {
-        firstTouch = NO;
-        previousLocation = [touch previousLocationInView:self];
-        previousLocation.y = bounds.size.height - previousLocation.y;
-        [self renderLineFromPoint:previousLocation toPoint:location];
-    }
+//    if (firstTouch) {
+//        firstTouch = NO;
+//        previousLocation = [touch previousLocationInView:self];
+//        previousLocation.y = bounds.size.height - previousLocation.y;
+//        [self renderLineFromPoint:previousLocation toPoint:location];
+//    }
+    
+    location = [touch locationInView:self];
+    location.y = bounds.size.height - location.y;
+    NSArray *points = [self.pointManager finishWithPoint:location];
+    [self drawPoints:points];
 }
 
 // Handles the end of a touch event.
@@ -572,6 +582,56 @@ typedef struct {
 {
     // If appropriate, add code necessary to save the state of the application.
     // This application is not saving state.
+}
+
+
+- (void)drawPoints:(NSArray *)points{
+    NSDate *startDate = [NSDate date];
+    NSDate *endDate;
+    NSTimeInterval interval;
+    
+    [EAGLContext setCurrentContext:context];
+    glBindFramebuffer(GL_FRAMEBUFFER, viewFramebuffer);
+    for (int i = 0; i<points.count; i++) {
+        AFPoint *point = points[i];
+        CGPoint p = point.point;
+        
+        static GLfloat*        vertexBuffer = NULL;
+        
+        
+        // Convert locations from Points to Pixels
+        CGFloat scale = self.contentScaleFactor;
+        p.x *= scale;
+        p.y *= scale;
+        
+        // Allocate vertex array buffer
+        if(vertexBuffer == NULL)
+            vertexBuffer = malloc(2 * sizeof(GLfloat));
+        
+        vertexBuffer[0] = p.x;
+        vertexBuffer[1] = p.y;
+        
+        // Load data to the Vertex Buffer Object
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        glBufferData(GL_ARRAY_BUFFER, 2*sizeof(GLfloat), vertexBuffer, GL_DYNAMIC_DRAW);
+        
+        glEnableVertexAttribArray(ATTRIB_VERTEX);
+        glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, GL_FALSE, 0, 0);
+        
+        // Draw
+        glUseProgram(program[PROGRAM_POINT].id);
+        glUniform1f(program[PROGRAM_POINT].uniform[UNIFORM_POINT_SIZE], point.size);
+        glDrawArrays(GL_POINTS, 0, (int)1);
+        
+        // Display the buffer
+        
+    }
+    glBindRenderbuffer(GL_RENDERBUFFER, viewRenderbuffer);
+    [context presentRenderbuffer:GL_RENDERBUFFER];
+    
+    endDate = [NSDate date];
+    interval = [endDate timeIntervalSinceDate:startDate];
+    NSLog(@"+cost time2:%.4fs",interval);
 }
 
 - (void)setBrushColorWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue
