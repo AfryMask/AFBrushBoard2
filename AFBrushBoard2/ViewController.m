@@ -7,23 +7,33 @@
 //
 
 #import "ViewController.h"
+#import "AFBrushBoard2.h"
 
 @interface ViewController ()
-
+@property AFBrushBoard2 *brushBoard;
 @end
 
 @implementation ViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    // Do any additional setup after loading the view, typically from a nib.
+    self.brushBoard = [[AFBrushBoard2 alloc]initWithFrame:self.view.bounds];
+    [self.view addSubview:self.brushBoard];
+    [self.brushBoard setBrushColorWithRed:1 green:0 blue:0];
+    
+    
+    
+}
+
+- (void)viewWillAppear:(BOOL)animated{
+    NSLog(@"will");
+}
+
+- (void)viewDidAppear:(BOOL)animated{
+    
 }
 
 
-- (void)didReceiveMemoryWarning {
-    [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
-}
 
 
 @end
