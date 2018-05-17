@@ -21,6 +21,7 @@
 		3EA254C520AD71E600EF4A27 /* painting_texture_mb.png in Resources */ = {isa = PBXBuildFile; fileRef = 3EA254C420AD71E600EF4A27 /* painting_texture_mb.png */; };
 		3EA254C720AD798C00EF4A27 /* circle.png in Resources */ = {isa = PBXBuildFile; fileRef = 3EA254C620AD798C00EF4A27 /* circle.png */; };
 		3EA254CA20AD79EE00EF4A27 /* AFPointsManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 3EA254C920AD79EE00EF4A27 /* AFPointsManager.m */; };
+		3EA254CC20ADABC300EF4A27 /* test.png in Resources */ = {isa = PBXBuildFile; fileRef = 3EA254CB20ADABC300EF4A27 /* test.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,6 +48,7 @@
 		3EA254C620AD798C00EF4A27 /* circle.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = circle.png; sourceTree = "<group>"; };
 		3EA254C820AD79EE00EF4A27 /* AFPointsManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AFPointsManager.h; sourceTree = "<group>"; };
 		3EA254C920AD79EE00EF4A27 /* AFPointsManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AFPointsManager.m; sourceTree = "<group>"; };
+		3EA254CB20ADABC300EF4A27 /* test.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test.png; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,6 +119,7 @@
 				3EA2546A20AD69C200EF4A27 /* Recording.data */,
 				3EA254C420AD71E600EF4A27 /* painting_texture_mb.png */,
 				3EA254C620AD798C00EF4A27 /* circle.png */,
+				3EA254CB20ADABC300EF4A27 /* test.png */,
 			);
 			path = Supports;
 			sourceTree = "<group>";
@@ -181,6 +184,7 @@
 				3EA2546820AD62BD00EF4A27 /* point.fsh in Resources */,
 				3EA2544920AD5A5100EF4A27 /* Assets.xcassets in Resources */,
 				3EA254C520AD71E600EF4A27 /* painting_texture_mb.png in Resources */,
+				3EA254CC20ADABC300EF4A27 /* test.png in Resources */,
 				3EA2545720AD5E8D00EF4A27 /* Storyboard.storyboard in Resources */,
 				3EA254C720AD798C00EF4A27 /* circle.png in Resources */,
 				3EA2546B20AD69C200EF4A27 /* Recording.data in Resources */,

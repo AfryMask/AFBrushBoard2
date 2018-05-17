@@ -27,8 +27,8 @@
 - (instancetype)init{
     if (self = [super init]) {
         self.step = 1;
-        self.maxSize = 30;
-        self.minSize = 15;
+        self.maxSize = 60;
+        self.minSize = 40;
         self.maxSpeed = 30;
         self.minSpeed = 2;
         self.sizeSpeed = (self.maxSize - self.minSize)/200;
@@ -53,7 +53,7 @@
     self.point2 = self.point3;
     self.point3 = point;
     if (self.pointCount == 2) {
-        return [self makeLiner:self.point2 p2:self.point3];//线性2-3
+        return [self makeLiner:self.point2 p2:pointCenter(self.point2, self.point3)];//线性2-2.5
     }else{
         return [self makeBezier:pointCenter(self.point1, self.point2)
                              p2:pointCenter(self.point2, self.point3)

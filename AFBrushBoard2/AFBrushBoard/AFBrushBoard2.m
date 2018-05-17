@@ -339,7 +339,7 @@ typedef struct {
     glGenBuffers(1, &vboId);
     
     // Load the brush texture
-    brushTexture = [self textureFromName:@"circle.png"];
+    brushTexture = [self textureFromName:@"test.png"];
     
     // Load shaders
     [self setupShaders];
