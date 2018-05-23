@@ -59,7 +59,7 @@
 
 //CONSTANTS:
 
-#define kBrushOpacity        (1.0 / 6.0)
+#define kBrushOpacity        (1.0 / 3)
 #define kBrushPixelStep        1
 #define kBrushScale            5
 
@@ -339,7 +339,7 @@ typedef struct {
     glGenBuffers(1, &vboId);
     
     // Load the brush texture
-    brushTexture = [self textureFromName:@"test.png"];
+    brushTexture = [self textureFromName:@"Shape.png"];
     
     // Load shaders
     [self setupShaders];

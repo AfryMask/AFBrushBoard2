@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3E61CE9420B575C500C6EF4D /* Shape.png in Resources */ = {isa = PBXBuildFile; fileRef = 3E61CE9320B575C500C6EF4D /* Shape.png */; };
 		3EA2544120AD5A4F00EF4A27 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 3EA2544020AD5A4F00EF4A27 /* AppDelegate.m */; };
 		3EA2544420AD5A4F00EF4A27 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3EA2544320AD5A4F00EF4A27 /* ViewController.m */; };
 		3EA2544920AD5A5100EF4A27 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3EA2544820AD5A5100EF4A27 /* Assets.xcassets */; };
@@ -25,6 +26,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		3E61CE9320B575C500C6EF4D /* Shape.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Shape.png; sourceTree = "<group>"; };
 		3EA2543C20AD5A4F00EF4A27 /* AFBrushBoard2.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AFBrushBoard2.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3EA2543F20AD5A4F00EF4A27 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		3EA2544020AD5A4F00EF4A27 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -118,6 +120,7 @@
 				3EA2545E20AD62BD00EF4A27 /* point.vsh */,
 				3EA2546A20AD69C200EF4A27 /* Recording.data */,
 				3EA254C420AD71E600EF4A27 /* painting_texture_mb.png */,
+				3E61CE9320B575C500C6EF4D /* Shape.png */,
 				3EA254C620AD798C00EF4A27 /* circle.png */,
 				3EA254CB20ADABC300EF4A27 /* test.png */,
 			);
@@ -189,6 +192,7 @@
 				3EA254C720AD798C00EF4A27 /* circle.png in Resources */,
 				3EA2546B20AD69C200EF4A27 /* Recording.data in Resources */,
 				3EA2546520AD62BD00EF4A27 /* point.vsh in Resources */,
+				3E61CE9420B575C500C6EF4D /* Shape.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

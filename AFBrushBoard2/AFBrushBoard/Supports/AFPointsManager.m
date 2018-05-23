@@ -28,8 +28,8 @@
 - (instancetype)init{
     if (self = [super init]) {
         self.step = 1;
-        self.maxSize = 60;
-        self.minSize = 40;
+        self.maxSize = 40;
+        self.minSize = 20;
         self.maxSpeed = 30;
         self.minSpeed = 2;
         self.sizeSpeed = (self.maxSize - self.minSize)/200;
@@ -46,8 +46,11 @@
     self.point3 = point;
 }
 - (NSArray *)appendPoint:(CGPoint)point{
-    self.pointCount++;
     CGFloat distance = pointDistance(self.point3, point);
+    if (distance < 4) {
+        return nil;
+    }
+    self.pointCount++;
     CGFloat percent = MAX(MIN(1-(distance-self.minSpeed)/(self.maxSpeed-self.minSpeed),1),0);
     self.aimSize = (self.minSize+(self.maxSize-self.minSize)*percent + self.currentSize)/2;
     
@@ -66,6 +69,7 @@
     
 }
 - (NSArray *)finishWithPoint:(CGPoint)point{
+    return nil;
     self.pointCount++;
     self.point1 = self.point2;
     self.point2 = self.point3;
@@ -118,7 +122,7 @@
     if (CGPointEqualToPoint(self.smoothPoint, CGPointZero)) {
         self.smoothPoint = [points[0] CGPointValue];
     }
-    CGFloat distance = 1;
+    CGFloat distance = 0.3;
     NSMutableArray *arr = [NSMutableArray arrayWithCapacity:points.count];
     for (int i = 0; i<points.count; i++) {
         CGPoint p = [points[i] CGPointValue];
