@@ -8,6 +8,13 @@
 
 #import "AFPointsManager.h"
 
+// Constants for point smoothing and curve generation
+#define kSmoothingDistance      0.3     // Minimum distance between smoothed points
+#define kBezierSegmentLength    5       // Target length for bezier curve segments
+#define kMinimumPointDistance   4       // Minimum distance to register a new point
+#define kMaxSmoothingIterations 10000   // Safety limit for smoothing loop
+#define kTargetDistanceThreshold 0.01   // Distance threshold to stop smoothing
+
 @implementation AFPoint
 
 @end
@@ -47,7 +54,7 @@
 }
 - (NSArray *)appendPoint:(CGPoint)point{
     CGFloat distance = pointDistance(self.point3, point);
-    if (distance < 4) {
+    if (distance < kMinimumPointDistance) {
         return nil;
     }
     self.pointCount++;
@@ -69,29 +76,9 @@
     
 }
 - (NSArray *)finishWithPoint:(CGPoint)point{
+    // Currently not rendering additional points on touch end
+    // to avoid drawing artifacts when user lifts finger
     return nil;
-    self.pointCount++;
-    self.point1 = self.point2;
-    self.point2 = self.point3;
-    self.point3 = point;
-    if (self.pointCount == 2) {
-
-        return [self makeLiner:self.point2 p2:self.point3];//线性2-3
-    }else{
-        NSArray *before = [self makeBezier:pointCenter(self.point1, self.point2)
-                                        p2:pointCenter(self.point2, self.point3)
-                                        cp:self.point2];
-        NSArray *after = [self makeLiner:pointCenter(self.point2, self.point3) p2:self.point3];
-        NSMutableArray *arr = [NSMutableArray arrayWithArray:before];
-        [arr addObjectsFromArray:after];
-        
-        
-        return [self smoothPoints:arr];//线性2.5-3
-    }
-//
-//    return nil;
-//
-//    return [self makeLiner:self.point2 p2:self.point3];
 }
 
 
@@ -101,17 +88,29 @@
 
 - (NSArray *)makeBezier:(CGPoint)startP p2:(CGPoint)endP cp:(CGPoint)controlP{
     CGFloat dis = pointDistance(startP, endP);
-    int segements = MAX((int)(dis/5), 2)*2;
+    int segements = MAX((int)(dis / kBezierSegmentLength), 2) * 2;
     NSMutableArray *array = [NSMutableArray arrayWithCapacity:segements];
-    
-    for (int i = 0; i<=segements; i++) {
-        CGFloat t = i * 1.0 / segements;
-        CGFloat x = pow(1-t,2)*startP.x + 2.0*(1-t)*t*controlP.x + t*t*endP.x;
-        CGFloat y = pow(1-t,2)*startP.y + 2.0*(1-t)*t*controlP.y + t*t*endP.y;
+
+    // Optimize quadratic Bezier curve calculation by avoiding pow() calls
+    // Formula: B(t) = (1-t)^2 * P0 + 2*(1-t)*t * P1 + t^2 * P2
+    CGFloat invSegments = 1.0 / segements;
+
+    for (int i = 0; i <= segements; i++) {
+        CGFloat t = i * invSegments;
+        CGFloat oneMinusT = 1.0 - t;
+
+        // Calculate basis functions
+        CGFloat b0 = oneMinusT * oneMinusT;  // (1-t)^2
+        CGFloat b1 = 2.0 * oneMinusT * t;    // 2*(1-t)*t
+        CGFloat b2 = t * t;                  // t^2
+
+        // Calculate point coordinates
+        CGFloat x = b0 * startP.x + b1 * controlP.x + b2 * endP.x;
+        CGFloat y = b0 * startP.y + b1 * controlP.y + b2 * endP.y;
+
         [array addObject:[NSValue valueWithCGPoint:CGPointMake(x, y)]];
     }
     return array;
-    
 }
 
 
@@ -122,26 +121,44 @@
     if (CGPointEqualToPoint(self.smoothPoint, CGPointZero)) {
         self.smoothPoint = [points[0] CGPointValue];
     }
-    CGFloat distance = 0.3;
     NSMutableArray *arr = [NSMutableArray arrayWithCapacity:points.count];
     for (int i = 0; i<points.count; i++) {
         CGPoint p = [points[i] CGPointValue];
         CGFloat d = pointDistance(p, self.smoothPoint);
-        if (d < distance) {
+        if (d < kSmoothingDistance) {
             continue;
         }
         CGFloat kx = (p.x-self.smoothPoint.x)/d;
         CGFloat ky = (p.y-self.smoothPoint.y)/d;
-        while (1) {
+
+        // Calculate the number of steps needed to reach the target point
+        // This avoids potential infinite loops and is more efficient
+        int maxSteps = (int)ceil(d / 1.0); // 1.0 is the step size (kx, ky are unit vectors)
+
+        // Safety limit: prevent excessive iterations
+        if (maxSteps > kMaxSmoothingIterations) {
+            maxSteps = kMaxSmoothingIterations;
+        }
+
+        for (int step = 0; step < maxSteps; step++) {
             CGPoint newp = CGPointMake(self.smoothPoint.x+kx, self.smoothPoint.y+ky);
+
+            // Check if we've reached or passed the target point
             if ((kx>0 && newp.x>p.x) || (kx<0 && newp.x<p.x)) {
                 break;
             }
             if ((ky>0 && newp.y>p.y) || (ky<0 && newp.y<p.y)) {
                 break;
             }
+
+            // Additional safety check: if step size is too small, break to avoid getting stuck
+            CGFloat distanceToTarget = pointDistance(newp, p);
+            if (distanceToTarget < kTargetDistanceThreshold) {
+                break;
+            }
+
             self.smoothPoint = newp;
-            
+
             AFPoint *afp = [AFPoint new];
             if (self.currentSize < self.aimSize) {
                 self.currentSize+=self.sizeSpeed;
@@ -152,12 +169,9 @@
             afp.point = newp;
             [arr addObject:afp];
         }
-        
-        
-        
     }
     return arr;
-    
+
 }
 
 CGPoint pointCenter(CGPoint p1, CGPoint p2){
