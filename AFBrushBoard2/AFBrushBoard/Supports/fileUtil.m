@@ -59,16 +59,31 @@ char *readFile(const char *name)
 	struct stat statbuf;
 	FILE *fh;
 	char *source;
-	
+
 	fh = fopen(name, "r");
 	if (fh == 0)
 		return 0;
-	
-	stat(name, &statbuf);
+
+	if (stat(name, &statbuf) != 0) {
+		fclose(fh);
+		return 0;
+	}
+
 	source = (char *) malloc(statbuf.st_size + 1);
-	fread(source, statbuf.st_size, 1, fh);
+	if (source == NULL) {
+		fclose(fh);
+		return 0;
+	}
+
+	size_t bytesRead = fread(source, 1, statbuf.st_size, fh);
+	if (bytesRead != statbuf.st_size) {
+		free(source);
+		fclose(fh);
+		return 0;
+	}
+
 	source[statbuf.st_size] = '\0';
 	fclose(fh);
-	
+
 	return source;
 }

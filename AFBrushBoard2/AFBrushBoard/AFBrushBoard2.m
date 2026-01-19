@@ -64,6 +64,7 @@
 #define kBrushScale             5
 #define kInitialVertexBufferSize 64
 #define kClearColorWhite        1.0
+#define kBatchSizeTolerance     0.5f
 
 
 // Shaders
@@ -114,9 +115,6 @@ typedef struct {
     // OpenGL names for the renderbuffer and framebuffers used to render to this view
     GLuint viewRenderbuffer, viewFramebuffer;
 
-    // OpenGL name for the depth buffer that is attached to viewFramebuffer, if it exists (0 if it does not exist)
-    GLuint depthRenderbuffer;
-
     textureInfo_t brushTexture;     // brush texture
     GLfloat brushColor[4];          // brush color
 
@@ -130,10 +128,6 @@ typedef struct {
     // Buffer Objects
     GLuint vboId;
 
-    // Reusable vertex buffer for line rendering
-    GLfloat *lineVertexBuffer;
-    NSUInteger lineVertexMax;
-
     BOOL initialized;
 }
 @property AFPointsManager *pointManager;
@@ -142,7 +136,6 @@ typedef struct {
 @implementation AFBrushBoard2
 
 @synthesize  location;
-@synthesize  previousLocation;
 
 // Implement this to override the default layer class (which is [CALayer class]).
 // We do this so that our view will be backed by a layer that is capable of OpenGL ES rendering.
@@ -174,10 +167,6 @@ typedef struct {
         // Make sure to start with a cleared buffer
         needsErase = YES;
         self.pointManager = [AFPointsManager new];
-
-        // Initialize line vertex buffer
-        lineVertexMax = kInitialVertexBufferSize;
-        lineVertexBuffer = NULL;
     }
 
     return self;
@@ -201,74 +190,86 @@ typedef struct {
     }
 }
 
-- (void)setupShaders
+// Load and compile a shader program
+- (BOOL)loadAndCompileProgram:(int)programIndex
 {
-    for (int i = 0; i < NUM_PROGRAMS; i++)
-    {
-        char *vsrc = readFile(pathForResource(program[i].vert));
-        char *fsrc = readFile(pathForResource(program[i].frag));
+    char *vsrc = readFile(pathForResource(program[programIndex].vert));
+    char *fsrc = readFile(pathForResource(program[programIndex].frag));
 
-        // Check if shader files were loaded successfully
-        if (vsrc == NULL) {
-            NSLog(@"Failed to read vertex shader file: %s", program[i].vert);
-            continue;
-        }
-        if (fsrc == NULL) {
-            NSLog(@"Failed to read fragment shader file: %s", program[i].frag);
-            free(vsrc);
-            continue;
-        }
-
-        GLsizei attribCt = 0;
-        GLchar *attribUsed[NUM_ATTRIBS];
-        GLint attrib[NUM_ATTRIBS];
-        GLchar *attribName[NUM_ATTRIBS] = {
-            "inVertex",
-        };
-        const GLchar *uniformName[NUM_UNIFORMS] = {
-            "MVP", "pointSize", "vertexColor", "texture",
-        };
-
-        // auto-assign known attribs
-        for (int j = 0; j < NUM_ATTRIBS; j++)
-        {
-            if (strstr(vsrc, attribName[j]))
-            {
-                attrib[attribCt] = j;
-                attribUsed[attribCt++] = attribName[j];
-            }
-        }
-
-        glueCreateProgram(vsrc, fsrc,
-                          attribCt, (const GLchar **)&attribUsed[0], attrib,
-                          NUM_UNIFORMS, &uniformName[0], program[i].uniform,
-                          &program[i].id);
+    // Check if shader files were loaded successfully
+    if (vsrc == NULL) {
+        NSLog(@"Failed to read vertex shader file: %s", program[programIndex].vert);
+        return NO;
+    }
+    if (fsrc == NULL) {
+        NSLog(@"Failed to read fragment shader file: %s", program[programIndex].frag);
         free(vsrc);
-        free(fsrc);
-        
-        // Set constant/initalize uniforms
-        if (i == PROGRAM_POINT)
-        {
-            glUseProgram(program[PROGRAM_POINT].id);
-            
-            // the brush texture will be bound to texture unit 0
-            glUniform1i(program[PROGRAM_POINT].uniform[UNIFORM_TEXTURE], 0);
-            
-            // viewing matrices
-            GLKMatrix4 projectionMatrix = GLKMatrix4MakeOrtho(0, backingWidth, 0, backingHeight, -1, 1);
-            GLKMatrix4 modelViewMatrix = GLKMatrix4Identity; // this sample uses a constant identity modelView matrix
-            GLKMatrix4 MVPMatrix = GLKMatrix4Multiply(projectionMatrix, modelViewMatrix);
-            
-            glUniformMatrix4fv(program[PROGRAM_POINT].uniform[UNIFORM_MVP], 1, GL_FALSE, MVPMatrix.m);
-            
-            // point size
-            glUniform1f(program[PROGRAM_POINT].uniform[UNIFORM_POINT_SIZE], brushTexture.width / kBrushScale);
-            
-            // initialize brush color
-            glUniform4fv(program[PROGRAM_POINT].uniform[UNIFORM_VERTEX_COLOR], 1, brushColor);
+        return NO;
+    }
+
+    GLsizei attribCt = 0;
+    GLchar *attribUsed[NUM_ATTRIBS];
+    GLint attrib[NUM_ATTRIBS];
+    GLchar *attribName[NUM_ATTRIBS] = {
+        "inVertex",
+    };
+    const GLchar *uniformName[NUM_UNIFORMS] = {
+        "MVP", "pointSize", "vertexColor", "texture",
+    };
+
+    // Auto-assign known attributes
+    for (int j = 0; j < NUM_ATTRIBS; j++) {
+        if (strstr(vsrc, attribName[j])) {
+            attrib[attribCt] = j;
+            attribUsed[attribCt++] = attribName[j];
         }
     }
-    
+
+    glueCreateProgram(vsrc, fsrc,
+                      attribCt, (const GLchar **)&attribUsed[0], attrib,
+                      NUM_UNIFORMS, &uniformName[0], program[programIndex].uniform,
+                      &program[programIndex].id);
+    free(vsrc);
+    free(fsrc);
+
+    return YES;
+}
+
+// Set up uniforms for the point drawing program
+- (void)setupPointProgramUniforms
+{
+    glUseProgram(program[PROGRAM_POINT].id);
+
+    // The brush texture will be bound to texture unit 0
+    glUniform1i(program[PROGRAM_POINT].uniform[UNIFORM_TEXTURE], 0);
+
+    // Setup viewing matrices
+    GLKMatrix4 projectionMatrix = GLKMatrix4MakeOrtho(0, backingWidth, 0, backingHeight, -1, 1);
+    GLKMatrix4 modelViewMatrix = GLKMatrix4Identity;
+    GLKMatrix4 MVPMatrix = GLKMatrix4Multiply(projectionMatrix, modelViewMatrix);
+
+    glUniformMatrix4fv(program[PROGRAM_POINT].uniform[UNIFORM_MVP], 1, GL_FALSE, MVPMatrix.m);
+
+    // Set point size
+    glUniform1f(program[PROGRAM_POINT].uniform[UNIFORM_POINT_SIZE], brushTexture.width / kBrushScale);
+
+    // Initialize brush color
+    glUniform4fv(program[PROGRAM_POINT].uniform[UNIFORM_VERTEX_COLOR], 1, brushColor);
+}
+
+- (void)setupShaders
+{
+    for (int i = 0; i < NUM_PROGRAMS; i++) {
+        if (![self loadAndCompileProgram:i]) {
+            continue;
+        }
+
+        // Set up program-specific uniforms
+        if (i == PROGRAM_POINT) {
+            [self setupPointProgramUniforms];
+        }
+    }
+
     glError();
 }
 
@@ -432,11 +433,6 @@ typedef struct {
         glDeleteRenderbuffers(1, &viewRenderbuffer);
         viewRenderbuffer = 0;
     }
-    if (depthRenderbuffer)
-    {
-        glDeleteRenderbuffers(1, &depthRenderbuffer);
-        depthRenderbuffer = 0;
-    }
     // texture
     if (brushTexture.id) {
         glDeleteTextures(1, &brushTexture.id);
@@ -446,12 +442,6 @@ typedef struct {
     if (vboId) {
         glDeleteBuffers(1, &vboId);
         vboId = 0;
-    }
-
-    // Free line vertex buffer
-    if (lineVertexBuffer) {
-        free(lineVertexBuffer);
-        lineVertexBuffer = NULL;
     }
 
     // tear down context
@@ -494,65 +484,6 @@ typedef struct {
     [self presentRenderbuffer];
 }
 
-// Drawings a line onscreen based on where the user touches
-- (void)renderLineFromPoint:(CGPoint)start toPoint:(CGPoint)end
-{
-    NSUInteger vertexCount = 0;
-    NSUInteger count;
-    NSUInteger i;
-
-    [self setupGLContext];
-
-    // Convert locations from Points to Pixels
-    CGFloat scale = self.contentScaleFactor;
-    start.x *= scale;
-    start.y *= scale;
-    end.x *= scale;
-    end.y *= scale;
-
-    // Allocate vertex array buffer on first use
-    if (lineVertexBuffer == NULL) {
-        lineVertexBuffer = malloc(lineVertexMax * 2 * sizeof(GLfloat));
-        if (lineVertexBuffer == NULL) {
-            NSLog(@"Failed to allocate line vertex buffer");
-            return;
-        }
-    }
-
-    // Add points to the buffer so there are drawing points every X pixels
-    count = MAX(ceilf(sqrtf((end.x - start.x) * (end.x - start.x) + (end.y - start.y) * (end.y - start.y)) / kBrushPixelStep), 1);
-    for (i = 0; i < count; ++i) {
-        if (vertexCount == lineVertexMax) {
-            // Need to grow the buffer
-            lineVertexMax = 2 * lineVertexMax;
-            GLfloat *newBuffer = realloc(lineVertexBuffer, lineVertexMax * 2 * sizeof(GLfloat));
-            if (newBuffer == NULL) {
-                NSLog(@"Failed to reallocate line vertex buffer");
-                return;
-            }
-            lineVertexBuffer = newBuffer;
-        }
-
-        lineVertexBuffer[2 * vertexCount + 0] = start.x + (end.x - start.x) * ((GLfloat)i / (GLfloat)count);
-        lineVertexBuffer[2 * vertexCount + 1] = start.y + (end.y - start.y) * ((GLfloat)i / (GLfloat)count);
-        vertexCount += 1;
-    }
-
-    // Load data to the Vertex Buffer Object
-    glBindBuffer(GL_ARRAY_BUFFER, vboId);
-    glBufferData(GL_ARRAY_BUFFER, vertexCount * 2 * sizeof(GLfloat), lineVertexBuffer, GL_DYNAMIC_DRAW);
-
-    glEnableVertexAttribArray(ATTRIB_VERTEX);
-    glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, GL_FALSE, 0, 0);
-
-    // Draw
-    glUseProgram(program[PROGRAM_POINT].id);
-    glDrawArrays(GL_POINTS, 0, (int)vertexCount);
-
-    // Display the buffer
-    [self presentRenderbuffer];
-}
-
 // Handles the start of a touch
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
@@ -568,9 +499,8 @@ typedef struct {
 {
     UITouch *touch = [[event touchesForView:self] anyObject];
 
-    // Convert touch points from UIView referential to OpenGL one (upside-down flip)
+    // Convert touch point from UIView referential to OpenGL one (upside-down flip)
     location = [self convertTouchPoint:[touch locationInView:self]];
-    previousLocation = [self convertTouchPoint:[touch previousLocationInView:self]];
 
     // Render the stroke
     NSArray *points = [self.pointManager appendPoint:location];
@@ -636,10 +566,10 @@ typedef struct {
         GLfloat currentSize = currentPoint.size;
         int batchCount = 1;
 
-        // Find consecutive points with similar size (within 0.5 pixel tolerance)
+        // Find consecutive points with similar size
         while (startIdx + batchCount < points.count) {
             AFPoint *nextPoint = points[startIdx + batchCount];
-            if (fabsf(nextPoint.size - currentSize) < 0.5f) {
+            if (fabsf(nextPoint.size - currentSize) < kBatchSizeTolerance) {
                 batchCount++;
             } else {
                 break;

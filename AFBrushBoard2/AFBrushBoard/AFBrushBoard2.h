@@ -57,7 +57,6 @@
 @interface AFBrushBoard2 : UIView
 
 @property(nonatomic, readwrite) CGPoint location;
-@property(nonatomic, readwrite) CGPoint previousLocation;
 
 - (void)erase;
 - (void)setBrushColorWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue;
