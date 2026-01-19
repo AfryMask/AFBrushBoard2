@@ -473,6 +473,14 @@ typedef struct {
     [context presentRenderbuffer:GL_RENDERBUFFER];
 }
 
+// Helper method to convert touch coordinates from UIView to OpenGL coordinate system
+- (CGPoint)convertTouchPoint:(CGPoint)touchPoint
+{
+    CGRect bounds = [self bounds];
+    touchPoint.y = bounds.size.height - touchPoint.y;
+    return touchPoint;
+}
+
 // Erases the screen
 - (void)erase
 {
@@ -548,26 +556,21 @@ typedef struct {
 // Handles the start of a touch
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
-    CGRect bounds = [self bounds];
     UITouch *touch = [[event touchesForView:self] anyObject];
 
     // Convert touch point from UIView referential to OpenGL one (upside-down flip)
-    location = [touch locationInView:self];
-    location.y = bounds.size.height - location.y;
+    location = [self convertTouchPoint:[touch locationInView:self]];
     [self.pointManager startWithPoint:location];
 }
 
 // Handles the continuation of a touch.
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
 {
-    CGRect bounds = [self bounds];
     UITouch *touch = [[event touchesForView:self] anyObject];
 
-    // Convert touch point from UIView referential to OpenGL one (upside-down flip)
-    location = [touch locationInView:self];
-    location.y = bounds.size.height - location.y;
-    previousLocation = [touch previousLocationInView:self];
-    previousLocation.y = bounds.size.height - previousLocation.y;
+    // Convert touch points from UIView referential to OpenGL one (upside-down flip)
+    location = [self convertTouchPoint:[touch locationInView:self]];
+    previousLocation = [self convertTouchPoint:[touch previousLocationInView:self]];
 
     // Render the stroke
     NSArray *points = [self.pointManager appendPoint:location];
@@ -577,11 +580,10 @@ typedef struct {
 // Handles the end of a touch event when the touch is a tap.
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
 {
-    CGRect bounds = [self bounds];
     UITouch *touch = [[event touchesForView:self] anyObject];
 
-    location = [touch locationInView:self];
-    location.y = bounds.size.height - location.y;
+    // Convert touch point from UIView referential to OpenGL one (upside-down flip)
+    location = [self convertTouchPoint:[touch locationInView:self]];
     NSArray *points = [self.pointManager finishWithPoint:location];
     [self drawPoints:points];
 }
@@ -611,17 +613,14 @@ typedef struct {
         return;
     }
 
-    // Fill vertex buffer with all points
+    // Fill vertex buffer with all points and convert coordinates
     for (int i = 0; i < points.count; i++) {
         AFPoint *point = points[i];
         CGPoint p = point.point;
 
         // Convert locations from Points to Pixels
-        p.x *= scale;
-        p.y *= scale;
-
-        vertexBuffer[i * 2 + 0] = p.x;
-        vertexBuffer[i * 2 + 1] = p.y;
+        vertexBuffer[i * 2 + 0] = p.x * scale;
+        vertexBuffer[i * 2 + 1] = p.y * scale;
     }
 
     // Set up GL state once (outside the loop)
@@ -630,18 +629,34 @@ typedef struct {
     glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glUseProgram(program[PROGRAM_POINT].id);
 
-    // Draw all points with their individual sizes
-    for (int i = 0; i < points.count; i++) {
-        AFPoint *point = points[i];
+    // Batch draw points with same size to reduce GL calls
+    int startIdx = 0;
+    while (startIdx < points.count) {
+        AFPoint *currentPoint = points[startIdx];
+        GLfloat currentSize = currentPoint.size;
+        int batchCount = 1;
 
-        // Upload only the current point's vertex data
-        glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(GLfloat), &vertexBuffer[i * 2], GL_DYNAMIC_DRAW);
+        // Find consecutive points with similar size (within 0.5 pixel tolerance)
+        while (startIdx + batchCount < points.count) {
+            AFPoint *nextPoint = points[startIdx + batchCount];
+            if (fabsf(nextPoint.size - currentSize) < 0.5f) {
+                batchCount++;
+            } else {
+                break;
+            }
+        }
 
-        // Set point size for this specific point
-        glUniform1f(program[PROGRAM_POINT].uniform[UNIFORM_POINT_SIZE], point.size);
+        // Upload vertex data for this batch
+        glBufferData(GL_ARRAY_BUFFER, batchCount * 2 * sizeof(GLfloat),
+                     &vertexBuffer[startIdx * 2], GL_DYNAMIC_DRAW);
 
-        // Draw the point
-        glDrawArrays(GL_POINTS, 0, 1);
+        // Set point size for this batch
+        glUniform1f(program[PROGRAM_POINT].uniform[UNIFORM_POINT_SIZE], currentSize);
+
+        // Draw all points in this batch
+        glDrawArrays(GL_POINTS, 0, batchCount);
+
+        startIdx += batchCount;
     }
 
     // Clean up vertex buffer
@@ -653,12 +668,12 @@ typedef struct {
 
 - (void)setBrushColorWithRed:(CGFloat)red green:(CGFloat)green blue:(CGFloat)blue
 {
-    // Update the brush color
-    brushColor[0] = 0 * kBrushOpacity;
-    brushColor[1] = 0 * kBrushOpacity;
-    brushColor[2] = 0 * kBrushOpacity;
+    // Update the brush color with premultiplied alpha
+    brushColor[0] = red * kBrushOpacity;
+    brushColor[1] = green * kBrushOpacity;
+    brushColor[2] = blue * kBrushOpacity;
     brushColor[3] = kBrushOpacity;
-    
+
     if (initialized) {
         glUseProgram(program[PROGRAM_POINT].id);
         glUniform4fv(program[PROGRAM_POINT].uniform[UNIFORM_VERTEX_COLOR], 1, brushColor);

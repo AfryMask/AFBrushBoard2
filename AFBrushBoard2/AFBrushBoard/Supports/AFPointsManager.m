@@ -90,15 +90,27 @@
     CGFloat dis = pointDistance(startP, endP);
     int segements = MAX((int)(dis / kBezierSegmentLength), 2) * 2;
     NSMutableArray *array = [NSMutableArray arrayWithCapacity:segements];
-    
-    for (int i = 0; i<=segements; i++) {
-        CGFloat t = i * 1.0 / segements;
-        CGFloat x = pow(1-t,2)*startP.x + 2.0*(1-t)*t*controlP.x + t*t*endP.x;
-        CGFloat y = pow(1-t,2)*startP.y + 2.0*(1-t)*t*controlP.y + t*t*endP.y;
+
+    // Optimize quadratic Bezier curve calculation by avoiding pow() calls
+    // Formula: B(t) = (1-t)^2 * P0 + 2*(1-t)*t * P1 + t^2 * P2
+    CGFloat invSegments = 1.0 / segements;
+
+    for (int i = 0; i <= segements; i++) {
+        CGFloat t = i * invSegments;
+        CGFloat oneMinusT = 1.0 - t;
+
+        // Calculate basis functions
+        CGFloat b0 = oneMinusT * oneMinusT;  // (1-t)^2
+        CGFloat b1 = 2.0 * oneMinusT * t;    // 2*(1-t)*t
+        CGFloat b2 = t * t;                  // t^2
+
+        // Calculate point coordinates
+        CGFloat x = b0 * startP.x + b1 * controlP.x + b2 * endP.x;
+        CGFloat y = b0 * startP.y + b1 * controlP.y + b2 * endP.y;
+
         [array addObject:[NSValue valueWithCGPoint:CGPointMake(x, y)]];
     }
     return array;
-    
 }
 
 
