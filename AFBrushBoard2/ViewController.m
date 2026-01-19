@@ -9,6 +9,9 @@
 #import "ViewController.h"
 #import "AFBrushBoard2.h"
 
+// UI Constants
+static const CGFloat kClearButtonHeight = 100.0;
+
 @interface ViewController ()
 @property AFBrushBoard2 *brushBoard;
 @end
@@ -22,18 +25,18 @@
     [self.brushBoard setBrushColorWithRed:1 green:0 blue:0];
     
     
-    UIButton *btn = [[UIButton alloc]initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, 100)];
+    UIButton *btn = [[UIButton alloc]initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, kClearButtonHeight)];
     [btn addTarget:self.brushBoard action:@selector(erase) forControlEvents:UIControlEventTouchUpInside];
     btn.backgroundColor = [UIColor cyanColor];
     [self.view addSubview:btn];
 }
 
 - (void)viewWillAppear:(BOOL)animated{
-    NSLog(@"will");
+    [super viewWillAppear:animated];
 }
 
 - (void)viewDidAppear:(BOOL)animated{
-    
+    [super viewDidAppear:animated];
 }
 
 

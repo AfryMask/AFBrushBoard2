@@ -48,7 +48,19 @@
 #ifndef FILEUTIL_H
 #define FILEUTIL_H
 
+/**
+ * Get the full path for a resource file in the main bundle.
+ * @param name The name of the resource file (including extension)
+ * @return The full filesystem path, or NULL if the resource is not found
+ */
 const char *pathForResource(const char *name);
+
+/**
+ * Read the entire contents of a file into a dynamically allocated string.
+ * @param name The full path to the file to read
+ * @return A null-terminated string containing the file contents, or NULL on error
+ * @note The caller is responsible for freeing the returned string using free()
+ */
 char *readFile(const char *name);
 
 #endif /* FILEUTIL_H */
